@@ -154,10 +154,31 @@ print("Tetraquark parameters:", params_tetraquark)
 print("Pentaquark parameters:", params_pentaquark)
 print("Most important PCA component for prediction:", np.argmax(feature_importance))
 
+import numpy as np
 from scipy.stats import chi2
 from sklearn.metrics import r2_score, mean_squared_error
 from sklearn.model_selection import cross_val_score
+from sklearn.base import BaseEstimator, RegressorMixin
 
+# Custom Estimator for EFT model
+class EFTRegressor(BaseEstimator, RegressorMixin):
+    def __init__(self):
+        self.params = None
+
+    def fit(self, X, y):
+        def model(t, a, b, c, d, e):
+            return a * np.exp(-b * t) + c * np.exp(-d * t) * np.cos(e * t)
+        
+        self.params, _ = curve_fit(model, X[:, 0], y)
+        return self
+
+    def predict(self, X):
+        def model(t, a, b, c, d, e):
+            return a * np.exp(-b * t) + c * np.exp(-d * t) * np.cos(e * t)
+        
+        return model(X[:, 0], *self.params)
+
+# Helper functions
 def chi_square_test(observed, expected, errors):
     chi_sq = np.sum(((observed - expected) / errors) ** 2)
     dof = len(observed) - len(params_tetraquark)  # degrees of freedom
@@ -197,14 +218,11 @@ aic_tetraquark, bic_tetraquark = aic_bic(
 print(f"Tetraquark AIC: {aic_tetraquark}, BIC: {bic_tetraquark}")
 
 # Cross-validation
-def eft_model_wrapper(X, *params):
-    return eft_model_tetraquark(X[:, 0], *params)
-
 cv_scores = cross_val_score(
-    lambda X, y: curve_fit(eft_model_wrapper, X, y)[0], 
-    X=np.column_stack([time, tetraquark_data]), 
-    y=tetraquark_data, 
-    cv=5, 
+    EFTRegressor(),
+    X=np.column_stack([time, tetraquark_data]),
+    y=tetraquark_data,
+    cv=5,
     scoring='neg_mean_squared_error'
 )
 
@@ -234,13 +252,22 @@ plt.show()
 def compare_models(models, data, time):
     results = []
     for name, model in models.items():
-        params, _ = curve_fit(model, time, data)
-        aic, bic = aic_bic(data, model(time, *params), len(params))
+        if isinstance(model, type) and issubclass(model, BaseEstimator):
+            estimator = model()
+            estimator.fit(np.column_stack([time]), data)
+            predictions = estimator.predict(np.column_stack([time]))
+            num_params = len(estimator.params)
+        else:
+            params, _ = curve_fit(model, time, data)
+            predictions = model(time, *params)
+            num_params = len(params)
+        
+        aic, bic = aic_bic(data, predictions, num_params)
         results.append((name, aic, bic))
     return results
 
 models = {
-    'EFT Tetraquark': eft_model_tetraquark,
+    'EFT Tetraquark': EFTRegressor,
     'Simple Exponential': lambda t, a, b: a * np.exp(-b * t),
     'Double Exponential': lambda t, a, b, c, d: a * np.exp(-b * t) + c * np.exp(-d * t)
 }
