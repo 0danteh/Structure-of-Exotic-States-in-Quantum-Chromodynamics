@@ -59,3 +59,6 @@ Compare different models using statistical metrics such as AIC and BIC:
 Estimate prediction uncertainties using MCMC samples:
 
 - Define `predict_with_uncertainty(samples, time, model)` to compute mean and standard deviation of predictions.
+
+# Conclusion
+This project demonstrates a comprehensive approach to analyzing and modeling exotic hadron data using a combination of classical and quantum computational techniques. The results indicate that the models employed, including EFT, Bayesian analysis, VQE, and machine learning, provide highly accurate fits and predictions for the synthetic data. The statistical metrics and uncertainty estimates further validate the robustness of these methods, showcasing their potential for advancing the understanding of exotic hadrons.
