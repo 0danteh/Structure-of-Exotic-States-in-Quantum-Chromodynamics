@@ -153,3 +153,98 @@ plt.show()
 print("Tetraquark parameters:", params_tetraquark)
 print("Pentaquark parameters:", params_pentaquark)
 print("Most important PCA component for prediction:", np.argmax(feature_importance))
+
+from scipy.stats import chi2
+from sklearn.metrics import r2_score, mean_squared_error
+from sklearn.model_selection import cross_val_score
+
+def chi_square_test(observed, expected, errors):
+    chi_sq = np.sum(((observed - expected) / errors) ** 2)
+    dof = len(observed) - len(params_tetraquark)  # degrees of freedom
+    p_value = 1 - chi2.cdf(chi_sq, dof)
+    return chi_sq, p_value
+
+def aic_bic(observed, predicted, num_params):
+    n = len(observed)
+    residuals = observed - predicted
+    sse = np.sum(residuals**2)
+    aic = 2 * num_params + n * np.log(sse/n)
+    bic = np.log(n) * num_params + n * np.log(sse/n)
+    return aic, bic
+
+# Chi-Square Test
+chi_sq_tetraquark, p_value_tetraquark = chi_square_test(
+    tetraquark_data, 
+    eft_model_tetraquark(time, *params_tetraquark), 
+    0.05 * np.ones_like(tetraquark_data)
+)
+print(f"Tetraquark Chi-Square: {chi_sq_tetraquark}, p-value: {p_value_tetraquark}")
+
+# RMSE
+rmse_tetraquark = np.sqrt(mean_squared_error(tetraquark_data, eft_model_tetraquark(time, *params_tetraquark)))
+print(f"Tetraquark RMSE: {rmse_tetraquark}")
+
+# R-squared
+r2_tetraquark = r2_score(tetraquark_data, eft_model_tetraquark(time, *params_tetraquark))
+print(f"Tetraquark R-squared: {r2_tetraquark}")
+
+# AIC and BIC
+aic_tetraquark, bic_tetraquark = aic_bic(
+    tetraquark_data, 
+    eft_model_tetraquark(time, *params_tetraquark), 
+    len(params_tetraquark)
+)
+print(f"Tetraquark AIC: {aic_tetraquark}, BIC: {bic_tetraquark}")
+
+# Cross-validation
+def eft_model_wrapper(X, *params):
+    return eft_model_tetraquark(X[:, 0], *params)
+
+cv_scores = cross_val_score(
+    lambda X, y: curve_fit(eft_model_wrapper, X, y)[0], 
+    X=np.column_stack([time, tetraquark_data]), 
+    y=tetraquark_data, 
+    cv=5, 
+    scoring='neg_mean_squared_error'
+)
+
+print(f"Cross-validation MSE scores: {-cv_scores}")
+print(f"Mean CV MSE: {-cv_scores.mean()}, Std: {cv_scores.std()}")
+
+# Uncertainty Quantification
+def predict_with_uncertainty(samples, time, model):
+    predictions = np.array([model(time, *params) for params in samples])
+    mean_prediction = np.mean(predictions, axis=0)
+    std_prediction = np.std(predictions, axis=0)
+    return mean_prediction, std_prediction
+
+mean_tetraquark, std_tetraquark = predict_with_uncertainty(samples_tetraquark, time, eft_model_tetraquark)
+
+plt.figure(figsize=(12, 6))
+plt.plot(time, tetraquark_data, 'b.', label='Data')
+plt.plot(time, mean_tetraquark, 'r-', label='Mean Prediction')
+plt.fill_between(time, mean_tetraquark - 2*std_tetraquark, mean_tetraquark + 2*std_tetraquark, color='r', alpha=0.3, label='95% CI')
+plt.xlabel('Time')
+plt.ylabel('Correlation')
+plt.title('Tetraquark Prediction with Uncertainty')
+plt.legend()
+plt.show()
+
+# Model Comparison
+def compare_models(models, data, time):
+    results = []
+    for name, model in models.items():
+        params, _ = curve_fit(model, time, data)
+        aic, bic = aic_bic(data, model(time, *params), len(params))
+        results.append((name, aic, bic))
+    return results
+
+models = {
+    'EFT Tetraquark': eft_model_tetraquark,
+    'Simple Exponential': lambda t, a, b: a * np.exp(-b * t),
+    'Double Exponential': lambda t, a, b, c, d: a * np.exp(-b * t) + c * np.exp(-d * t)
+}
+
+model_comparison = compare_models(models, tetraquark_data, time)
+for name, aic, bic in model_comparison:
+    print(f"{name}: AIC = {aic}, BIC = {bic}")
