@@ -354,21 +354,17 @@ def coupled_eft_model_advanced(t, *params):
         result[:, i] = a * np.exp(-b * t) + c * np.exp(-d * t) * np.cos(e * t) + f * np.sin(g * t)
     return result.flatten()
 
-# Generate coupled data
 coupled_data = generate_coupled_channel_data(time)
 channels = coupled_data.shape[1]
 
-# Prepare initial guess
 initial_guess_advanced = np.random.rand(7 * channels)
 
-# Perform the fit
 params_coupled_advanced, _ = curve_fit(
     coupled_eft_model_advanced, 
-    time,  # Use time directly, not np.tile(time, 2)
+    time,
     coupled_data.flatten(), 
     p0=initial_guess_advanced,
-    maxfev=10000  # Increase max function evaluations if needed
-)
+    maxfev=10000
 
 def log_probability_advanced(params):
     if np.any(params < 0):
