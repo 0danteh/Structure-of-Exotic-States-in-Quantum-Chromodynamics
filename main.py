@@ -67,7 +67,6 @@ def coupled_eft_model_advanced(t, *params):
         result[i::channels] = a * np.exp(-b * t) + c * np.exp(-d * t) * np.cos(e * t) + f * np.sin(g * t)
     return result
 
-# Modify these lines
 channels = coupled_data.shape[1]
 initial_guess_advanced = np.random.rand(7 * channels)
 params_coupled_advanced, _ = curve_fit(
@@ -75,16 +74,14 @@ params_coupled_advanced, _ = curve_fit(
     time, 
     coupled_data.flatten(), 
     p0=initial_guess_advanced,
-    maxfev=10000  # Increase max function evaluations if needed
+    maxfev=10000
 )
 
 
-# Print the fitted parameters
 print("Fitted parameters for coupled model:")
 for i in range(channels):
     print(f"Channel {i+1}: {params_coupled[i*5:(i+1)*5]}")
 
-# Plot the results
 plt.figure(figsize=(12, 6))
 for i in range(channels):
     plt.plot(time, coupled_data[:, i], '.', label=f'Data Channel {i+1}')
